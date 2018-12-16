@@ -18,7 +18,7 @@
 
 
 # version of this Makefile
-MAKEFILE_VER =			2.1
+MAKEFILE_VER =			2.2
 
 # make options
 MAKEFLAGS +=			-s
@@ -34,19 +34,19 @@ MAKEFLAGS +=			-s
 # DEFAULT_TARGET =		debug
 # TARGET_EXEC =			stsm
 # TARGET_LIB =			libstsm.so
-# HEADER_EXT =			.h
+# HEADER_EXT =			.hpp
 # SOURCE_EXT =			.cpp
 
 # # CUSTOM paths
 # INC_DIRS =			inc
-# INC_EXT_DIRS = 		ext
-# FORMAT_INC_DIRS = 	        inc
+# INC_EXT_DIRS =		ext
+# FORMAT_INC_DIRS =		inc
 # SRC_DIRS =			src/stsm src/utils
 # TEST_SRC_DIRS =		src/tests
-# FORMAT_SRC_DIRS = 	        src
+# FORMAT_SRC_DIRS =		src
 # MAIN_SRC =			src/main.cpp
 # LIB_DIRS =			lib
-# ROOT_BUILD_DIR =		BUILD
+# ROOT_BUILD_DIR =		bin
 
 # # CUSTOM libs for different targets
 # RELEASE_LIBS =
@@ -168,11 +168,11 @@ DEPS :=				$(OBJS:.o=.d)
 
 ifeq ("$(PROGRAMFILES)$(ProgramFiles)","")
 # linux
-	SEPCHR = 		/
+	SEPCHR =		/
 # common binaries
 	MKDIR =			mkdir -p
-	RM = 			rm -f
-        RMALL = 		rm -rf
+	RM =			rm -f
+	RMALL =			rm -rf
 # colors and terminal details
 # https://wiki.archlinux.org/index.php/Bash/Prompt_customization#Escapes_between_command_input_and_output
 # https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_codes
