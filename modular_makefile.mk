@@ -12,9 +12,9 @@ library_folders			?=
 libs_to_link			?=
 
 source_extension		?= .cpp
-source_folders			?= src
-main_folders			?=
-test_folders			?=
+base_source_folders		?= src
+main_source_folders		?=
+test_source_folders		?=
 
 output_folder			?= out
 
@@ -25,7 +25,7 @@ subcomponent_folders		?=
 ###############################################################################
 
 # define defaults make options
-MAKEFLAGS			+= --no-builtin-rules
+MAKEFLAGS			+= --no-builtin-rules --warn-undefined-variables
 
 # defining default target
 MAKECMDGOALS			?= debug
@@ -87,16 +87,20 @@ LDFLAGS				:= $(addprefix -L,$(library_folders)) $(addprefix -l,$(libs_to_link))
 ####################
 # define build sources
 
-sources				= $(foreach tmp_dir, $(source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
+# sources_base			:= $(foreach tmp_dir, $(base_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
+# sources_test			:= $(foreach tmp_dir, $(test_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
+# sources_main			:= $(foreach tmp_dir, $(main_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
+
+sources				:= $(foreach tmp_dir, $(base_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
 
 ifeq ($(MAKECMDGOALS), test)
-	sources			+= $(foreach tmp_dir, $(test_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
+	sources			+= $(foreach tmp_dir, $(test_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
 # compile code instrumented for coverage analysis
 	CXXFLAGS		+= --coverage
 # link code instrumented for coverage analysis
 	LDFLAGS			+= $(addprefix -l,$(test_libs_to_link)) --coverage
 else
-	sources			+= $(foreach tmp_dir, $(main_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
+	sources			+= $(foreach tmp_dir, $(main_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
 ifeq ($(type), lib)
 	CXXFLAGS		+= -fPIC
 	LDFLAGS			+= -shared
