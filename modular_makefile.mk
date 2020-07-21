@@ -72,7 +72,7 @@ endif
 # define basic flags
 
 # for C pre-processor: add include folders and generate *.d dependency files in compile time
-CPPFLAGS			:= $(addprefix -I,$(include_folders))
+CPPFLAGS			:= $(addprefix -I,$(include_folders)) -MMD -MP
 
 # for C++ compiler
 CXXFLAGS			:= -pipe -std=c++11 -fexceptions -pedantic -Wall -Wextra -Wshadow -Wnon-virtual-dtor
@@ -175,7 +175,7 @@ $(output_folder)/release/bin/$(binary_name): $(objects_release_main)
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ $(objects_release_main) $(LDFLAGS) $(LDFLAGS_release) $(LDFLAGS_type)
 
-$(output_folder)/release/bin/%.o: % $(output_folder)/release/%.d
+$(output_folder)/release/bin/%.o: %
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_release) $(CXXFLAGS_type)
 
@@ -183,7 +183,7 @@ $(output_folder)/debug/bin/$(binary_name): $(objects_debug_main)
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ $(objects_debug_main) $(LDFLAGS) $(LDFLAGS_debug) $(LDFLAGS_type)
 
-$(output_folder)/debug/bin/%.o: % $(output_folder)/debug/%.d
+$(output_folder)/debug/bin/%.o: %
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_debug) $(CXXFLAGS_type)
 
@@ -196,7 +196,7 @@ $(output_folder)/release/lib/$(binary_name): $(objects_release_main)
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ $(objects_release_main) $(LDFLAGS) $(LDFLAGS_release) $(LDFLAGS_type)
 
-$(output_folder)/release/lib/%.o: % $(output_folder)/release/%.d
+$(output_folder)/release/lib/%.o: %
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_release) $(CXXFLAGS_type)
 
@@ -204,7 +204,7 @@ $(output_folder)/debug/lib/$(binary_name): $(objects_debug_main)
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ $(objects_debug_main) $(LDFLAGS) $(LDFLAGS_debug) $(LDFLAGS_type)
 
-$(output_folder)/debug/lib/%.o: % $(output_folder)/debug/%.d
+$(output_folder)/debug/lib/%.o: %
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_debug) $(CXXFLAGS_type)
 
@@ -217,26 +217,18 @@ $(output_folder)/debug/test/$(binary_name): $(objects_debug_test)
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ $(objects_debug_test) $(LDFLAGS) $(LDFLAGS_debug) $(LDFLAGS_test)
 
-$(output_folder)/debug/test/%.o: % $(output_folder)/debug/%.d
+$(output_folder)/debug/test/%.o: %
 	@$(MKDIR) $(dir $@)
 	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_debug) $(CXXFLAGS_test)
 
 
 
-####################
-# dependency targets
-
-$(output_folder)/release/%.d: %
-	@$(MKDIR) $(dir $@)
-	$(CPP) -M -MT $(output_folder)/release/$<.o -MF $@ $< $(CPPFLAGS)
-
-$(output_folder)/debug/%.d: %
-	@$(MKDIR) $(dir $@)
-	$(CPP) -M -MT $(output_folder)/debug/$<.o -MF $@ $< $(CPPFLAGS)
-
 NODEPS				:= clean run test
 ifeq (0, $(words $(findstring $(MAKECMDGOALS), $(NODEPS))))
-include $(patsubst %$(source_extension),$(output_folder)/debug/%$(source_extension).d,$(strip $(sources_base) $(sources_test) $(sources_main)))
+-include $(patsubst %$(source_extension),$(output_folder)/release/%$(source_extension).d,$(strip $(sources_base) $(sources_test) $(sources_main)))
+-include $(patsubst %$(source_extension),$(output_folder)/release/test/%$(source_extension).d,$(strip $(sources_base) $(sources_test) $(sources_main)))
+-include $(patsubst %$(source_extension),$(output_folder)/debug/%$(source_extension).d,$(strip $(sources_base) $(sources_test) $(sources_main)))
+-include $(patsubst %$(source_extension),$(output_folder)/debug/test/%$(source_extension).d,$(strip $(sources_base) $(sources_test) $(sources_main)))
 endif
 
 
