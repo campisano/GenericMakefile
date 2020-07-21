@@ -27,8 +27,8 @@ subcomponent_folders		?=
 # define defaults make options
 MAKEFLAGS			+= --no-builtin-rules --warn-undefined-variables
 
-# defining default target
-MAKECMDGOALS			?= debug
+# defining variable to avoid warning
+MAKECMDGOALS			?=
 
 
 
@@ -71,8 +71,8 @@ endif
 ####################
 # define basic flags
 
-# for C pre-processor
-CPPFLAGS			:= $(addprefix -I,$(include_folders)) -MMD -MP
+# for C pre-processor: add include folders and generate *.d dependency files in compile time
+CPPFLAGS			:= $(addprefix -I,$(include_folders))
 
 # for C++ compiler
 CXXFLAGS			:= -pipe -std=c++11 -fexceptions -pedantic -Wall -Wextra -Wshadow -Wnon-virtual-dtor
@@ -85,58 +85,43 @@ LDFLAGS				:= $(addprefix -L,$(library_folders)) $(addprefix -l,$(libs_to_link))
 
 
 ####################
-# define build sources
+# define scope-specific flags
 
-# sources_base			:= $(foreach tmp_dir, $(base_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
-# sources_test			:= $(foreach tmp_dir, $(test_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
-# sources_main			:= $(foreach tmp_dir, $(main_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
+# use optimization, remove all symbol table
+CXXFLAGS_release		:= -O3 -s
+LDFLAGS_release			:=
 
-sources				:= $(foreach tmp_dir, $(base_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
+# use debug optimization, increase debug level to 3, keep frame pointer to use linux 'prof' tool
+CXXFLAGS_debug			:= -Og -ggdb3 -g3 -fno-omit-frame-pointer
+# add all symbols, not only used ones, to the dynamic symbol table
+LDFLAGS_debug			:= -rdynamic
 
-ifeq ($(MAKECMDGOALS), test)
-	sources			+= $(foreach tmp_dir, $(test_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
 # compile code instrumented for coverage analysis
-	CXXFLAGS		+= --coverage
+CXXFLAGS_test			:= $(CXXFLAGS_debug) --coverage
 # link code instrumented for coverage analysis
-	LDFLAGS			+= $(addprefix -l,$(test_libs_to_link)) --coverage
-else
-	sources			+= $(foreach tmp_dir, $(main_source_folders), $(wildcard $(tmp_dir)/*$(source_extension)))
-ifeq ($(type), lib)
-	CXXFLAGS		+= -fPIC
-	LDFLAGS			+= -shared
-endif
-endif
+LDFLAGS_test			:= $(LDFLAGS_debug) $(addprefix -l,$(test_libs_to_link)) --coverage
 
-# one object for source, one dep for object
-objects				= $(sources:%=$(output_folder)/%.o)
-dependencies			= $(objects:.o=.d)
+CXXFLAGS_lib			:= -fPIC
+LDFLAGS_lib			:= -shared
+
+CXXFLAGS_static			:=
+LDFLAGS_static			:= -static -static-libgcc -static-libstdc++
+
+# add gprof tool info
+CXXFLAGS_profile		:= -g -pg
+# add all symbols, not only used ones, to the dynamic symbol table
+LDFLAGS_profile			:= -rdynamic -pg
 
 
 
 
 
 ####################
-# define build flags
+# define build sources
 
-#TODO
-#ifeq ($(MAKECMDGOALS), debug)
-ifneq ($(filter $(MAKECMDGOALS), debug test),)
-# use debug optimization, increase debug level to 3, keep frame pointer to use linux 'prof' tool
-	CXXFLAGS		+= -Og -ggdb3 -g3 -fno-omit-frame-pointer
-# add all symbols, not only used ones, to the dynamic symbol table
-	LDFLAGS			+= -rdynamic
-else ifeq ($(MAKECMDGOALS), release)
-# use optimization, remove all symbol table
-	CXXFLAGS		+= -O3 -s
-else ifeq ($(MAKECMDGOALS), static)
-	CXXFLAGS		+= -O3 -s
-	LDFLAGS			+= -static -static-libgcc -static-libstdc++
-else ifeq ($(MAKECMDGOALS), profile)
-# add gprof tool info
-	CXXFLAGS		+= -g -pg
-# add all symbols, not only used ones, to the dynamic symbol table
-	LDFLAGS			+= -rdynamic -pg
-endif
+sources_base			:= $(foreach tmp_dir,$(base_source_folders),$(wildcard $(tmp_dir)/*$(source_extension)))
+sources_test			:= $(foreach tmp_dir,$(test_source_folders),$(wildcard $(tmp_dir)/*$(source_extension)))
+sources_main			:= $(foreach tmp_dir,$(main_source_folders),$(wildcard $(tmp_dir)/*$(source_extension)))
 
 
 
@@ -147,70 +132,167 @@ endif
 
 
 
-# default target
-.PHONY: all debug release static profile
-all debug release static profile: submakefiles $(output_folder)/$(binary_name)
+ifeq ($(type), exec)
+release_targets 		:= $(output_folder)/release/bin/$(binary_name)
+objects_release_main		:= $(foreach source,$(strip $(sources_base) $(sources_main)),$(output_folder)/release/bin/$(source).o)
+debug_targets	 		:= $(output_folder)/debug/bin/$(binary_name)
+objects_debug_main		:= $(foreach source,$(strip $(sources_base) $(sources_main)),$(output_folder)/debug/bin/$(source).o)
+CXXFLAGS_type			:=
+LDFLAGS_type			:=
+else ifeq ($(type), lib)
+release_targets 		:= $(output_folder)/release/lib/$(binary_name)
+objects_release_main		:= $(foreach source,$(strip $(sources_base) $(sources_main)),$(output_folder)/release/lib/$(source).o)
+debug_targets	 		:= $(output_folder)/debug/lib/$(binary_name)
+objects_debug_main		:= $(foreach source,$(strip $(sources_base) $(sources_main)),$(output_folder)/debug/lib/$(source).o)
+CXXFLAGS_type			:= $(CXXFLAGS_lib)
+LDFLAGS_type			:= $(LDFLAGS_lib)
+else
+$(error wrong value for var 'type', valid are {exec,lib})
+endif
+
+ifneq ($(strip $(sources_test)),)
+debug_targets			+= $(output_folder)/debug/test/$(binary_name)
+objects_debug_test		:= $(foreach source,$(strip $(sources_base) $(sources_test)),$(output_folder)/debug/test/$(source).o)
+endif
+
+
+
+.PHONY: all
+all: submakefiles debug
+
+.PHONY: release
+release: submakefiles $(release_targets)
+
+.PHONY: debug
+debug: submakefiles $(debug_targets)
+
+
+
+####################
+# binary targets
+
+$(output_folder)/release/bin/$(binary_name): $(objects_release_main)
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ $(objects_release_main) $(LDFLAGS) $(LDFLAGS_release) $(LDFLAGS_type)
+
+$(output_folder)/release/bin/%.o: % $(output_folder)/release/%.d
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_release) $(CXXFLAGS_type)
+
+$(output_folder)/debug/bin/$(binary_name): $(objects_debug_main)
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ $(objects_debug_main) $(LDFLAGS) $(LDFLAGS_debug) $(LDFLAGS_type)
+
+$(output_folder)/debug/bin/%.o: % $(output_folder)/debug/%.d
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_debug) $(CXXFLAGS_type)
+
+
+
+####################
+# library targets
+
+$(output_folder)/release/lib/$(binary_name): $(objects_release_main)
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ $(objects_release_main) $(LDFLAGS) $(LDFLAGS_release) $(LDFLAGS_type)
+
+$(output_folder)/release/lib/%.o: % $(output_folder)/release/%.d
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_release) $(CXXFLAGS_type)
+
+$(output_folder)/debug/lib/$(binary_name): $(objects_debug_main)
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ $(objects_debug_main) $(LDFLAGS) $(LDFLAGS_debug) $(LDFLAGS_type)
+
+$(output_folder)/debug/lib/%.o: % $(output_folder)/debug/%.d
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_debug) $(CXXFLAGS_type)
+
+
+
+####################
+# test targets
+
+$(output_folder)/debug/test/$(binary_name): $(objects_debug_test)
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ $(objects_debug_test) $(LDFLAGS) $(LDFLAGS_debug) $(LDFLAGS_test)
+
+$(output_folder)/debug/test/%.o: % $(output_folder)/debug/%.d
+	@$(MKDIR) $(dir $@)
+	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_debug) $(CXXFLAGS_test)
+
+
+
+####################
+# dependency targets
+
+$(output_folder)/release/%.d: %
+	@$(MKDIR) $(dir $@)
+	$(CPP) -M -MT $(output_folder)/release/$<.o -MF $@ $< $(CPPFLAGS)
+
+$(output_folder)/debug/%.d: %
+	@$(MKDIR) $(dir $@)
+	$(CPP) -M -MT $(output_folder)/debug/$<.o -MF $@ $< $(CPPFLAGS)
+
+NODEPS				:= clean run test
+ifeq (0, $(words $(findstring $(MAKECMDGOALS), $(NODEPS))))
+include $(patsubst %$(source_extension),$(output_folder)/debug/%$(source_extension).d,$(strip $(sources_base) $(sources_test) $(sources_main)))
+endif
+
+
+
+
+
+####################
+# runnable targets
+
+
+
+ifeq ($(type), exec)
+.PHONY: run_debug
+run_debug:
+	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_folders)) $(output_folder)/debug/bin/$(binary_name)
+
+.PHONY: run_release
+run_release:
+	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_folders)) $(output_folder)/debug/bin/$(binary_name)
+endif
 
 
 
 .PHONY: test
-test: all
-# for run with library path
-	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_folders)) $(output_folder)/$(binary_name) -c
+test: submakefiles
+	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_folders)) $(output_folder)/debug/test/$(binary_name) -c
 
 
 
-.PHONY: ddd nemiver
-ddd nemiver:
-# for run with library path
-	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_folders)) $@ $(output_folder)/$(binary_name)
+# .PHONY: ddd nemiver
+# ddd nemiver:
+# # for run with library path
+# 	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_folders)) $@ $(output_folder)/$(binary_name)
 
 
-.PHONY: egdb
-egdb:
-# for run with library path
-	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_folders)) "${SOFTWARE_PATH}"/emacs/bin/emacs --execute '(gdb-many-windows)' --execute '(gdb "gdb -i=mi $(output_folder)/$(binary_name)")'
-
-
-
-.PHONY: run
-run:
-ifneq ($(MAKECMDGOALS), test)
-ifneq ($(type), lib)
-# for run with library path
-	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_folders)) $(output_folder)/$(binary_name)
-endif
-endif
-
-
-# binary_name target
-$(output_folder)/$(binary_name): $(dependencies) $(objects)
-	@$(MKDIR) $(dir $@)
-	$(CXX) $(objects) -o $@ $(LDFLAGS)
+# .PHONY: egdb
+# egdb:
+# # for run with library path
+# 	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_folders)) "${SOFTWARE_PATH}"/emacs/bin/emacs --execute '(gdb-many-windows)' --execute '(gdb "gdb -i=mi $(output_folder)/$(binary_name)")'
 
 
 
-# rule to generate a dep file by using the C preprocessor
-$(output_folder)/%.d: %
-	@$(MKDIR) $(dir $@)
-	$(CPP) -o $@ $< $(CPPFLAGS) -MM -MP -MT $(@:.d=.o)
-
-ifeq (0, $(words $(findstring $(MAKECMDGOALS), clean)))
-# include all dep files in the makefile
--include $(dependencies)
-endif
 
 
-
-$(output_folder)/%.o: % $(output_folder)/%.d
-	@$(MKDIR) $(dir $@)
-	$(CXX) -o $@ -c $< $(CPPFLAGS) $(CXXFLAGS)
+####################
+# other targets
 
 
 
 .PHONY: clean
 clean: submakefiles
-	$(RM) $(dependencies) $(objects) $(objects:.o=.gcno) $(output_folder)/$(binary_name)
+	$(RM) $(objects_debug_main) $(objects_debug_main:.o=.gcno)
+	$(RM) $(objects_debug_test) $(objects_debug_test:.o=.gcno) $(objects_debug_test:.o=.gcda)
+	$(RM) $(output_folder)/debug/bin/$(binary_name) $(output_folder)/debug/lib/$(binary_name) $(output_folder)/debug/test/$(binary_name)
+	$(RM) $(objects_release_main) $(objects_release_main:.o=.gcno)
+	$(RM) $(output_folder)/release/bin/$(binary_name) $(output_folder)/release/lib/$(binary_name)
 
 
 
