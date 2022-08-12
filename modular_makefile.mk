@@ -131,6 +131,7 @@ sources_main			:= $(foreach tmp_path,$(main_source_paths),$(wildcard $(tmp_path)
 # define targets
 
 
+
 ifeq ($(type), exec)
 output_subfolder		:= bin
 CXXFLAGS_TYPE			:=
@@ -147,7 +148,7 @@ build_targets	 		:= $(output_folder)/$(output_subfolder)/$(binary_name)
 objects_main			:= $(foreach source,$(strip $(sources_base) $(sources_main)),$(output_folder)/$(output_subfolder)/$(source).o)
 
 
-# add test sources when the scope of build is debug
+# add test target sources when exists
 ifneq ($(strip $(sources_test)),)
 build_targets			+= $(output_folder)/test/$(binary_name)
 objects_test			:= $(foreach source,$(strip $(sources_base) $(sources_test)),$(output_folder)/test/$(source).o)
@@ -240,8 +241,7 @@ test: submakefiles
 
 .PHONY: gcov
 gcov: submakefiles
-	@$(MKDIR) gcov
-	cd gcov && gcov -a -p $(foreach object,$(objects_main),../$(object)) $(foreach source,$(strip $(sources_base) $(sources_main)),-o ../$(output_folder)/test/$(source).gcno -o ../$(output_folder)/test/$(source).gcda)
+	gcov -r -p $(foreach object,$(objects_test),$(object))
 
 
 
