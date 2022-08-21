@@ -17,6 +17,8 @@ main_source_paths		?=
 test_source_paths		?=
 
 output_folder			?= build
+DESTDIR				?=
+PREFIX				?= /usr/local
 
 subcomponent_paths		?=
 
@@ -53,11 +55,13 @@ endif
 # define O.S. specific commands
 
 ifdef COMSPEC
+	CP			?= copy
 	MKDIR			?= md
 	MV			?= move
 	RM			?= del
 	RMALL			?= rd /s /q
 else
+	CP			?= cp
 	MKDIR			?= mkdir -p
 	MV			?= mv -f
 	RM			?= rm -f
@@ -235,13 +239,13 @@ endif
 
 .PHONY: test
 test: submakefiles
-	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_paths)) $(output_folder)/test/$(binary_name) -c -p
+	LD_LIBRARY_PATH=$(subst $(subst ,, ),:,$(library_paths)) $(output_folder)/test/$(binary_name)
 
 
 
 .PHONY: gcov
 gcov: submakefiles
-	gcov -r -p $(foreach object,$(objects_test),$(object))
+	$(foreach source,$(strip $(sources_base) $(sources_main)),gcov -p -r -o $(output_folder)/test/$(source).o $(source); )
 
 
 
@@ -273,10 +277,17 @@ clean: submakefiles
 
 
 
+.PHONY: install
+install: submakefiles
+	$(MKDIR) $(DESTDIR)$(PREFIX)/$(output_subfolder)
+	$(CP) $(output_folder)/$(output_subfolder)/$(binary_name) $(DESTDIR)$(PREFIX)/$(output_subfolder)
+
+
+
 .PHONY: submakefiles
 submakefiles:
 	@for tmp_path in $(subcomponent_paths); do \
 	echo "----- $$tmp_path -----"; \
-	$(MAKE) -C $$tmp_path $(MAKECMDGOALS) || exit; \
+	$(MAKE) -C $$tmp_path $(MAKECMDGOALS) PREFIX=$(PREFIX) || exit; \
 	echo; \
 	done;
