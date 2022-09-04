@@ -101,9 +101,9 @@ CXXFLAGS_DEBUG			:= -Og -ggdb3 -fno-omit-frame-pointer
 LDFLAGS_DEBUG			:= -rdynamic
 
 # compile code instrumented for coverage analysis
-CXXFLAGS_TEST			:= $(CXXFLAGS_DEBUG) --coverage
+CXXFLAGS_TEST			:= --coverage
 # link code instrumented for coverage analysis
-LDFLAGS_TEST			:= $(LDFLAGS_DEBUG) $(addprefix -l,$(test_libs_to_link)) --coverage
+LDFLAGS_TEST			:= $(addprefix -l,$(test_libs_to_link)) --coverage
 
 CXXFLAGS_LIB			:= -fPIC
 LDFLAGS_LIB			:= -shared
@@ -206,7 +206,7 @@ $(output_folder)/lib/%.o: %
 
 $(output_folder)/test/$(binary_name): $(objects_test)
 	@$(MKDIR) $(dir $@)
-	$(CXX) -Wl,--no-as-needed -o $@ $(objects_test) $(LDFLAGS_COMMON) $(LDFLAGS_SCOPE) $(LDFLAGS_TEST)
+	$(CXX) -Wl,--no-as-needed -o $@ $(objects_test) $(LDFLAGS_COMMON) $(LDFLAGS_TEST) $(LDFLAGS_SCOPE)
 
 $(output_folder)/test/%.o: %
 	@$(MKDIR) $(dir $@)
